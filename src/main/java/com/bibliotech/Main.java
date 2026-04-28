@@ -23,7 +23,7 @@ public class Main {
         boolean salir = false;
 
         // 3. Cargar datos de prueba
-        recursoRepo.guardar(new Libro("123", "Sistemas Operativos Modernos", "Tanenbaum", 2008, "Tecnología"));
+        recursoRepo.guardar(new Libro("123", "Sistemas Operativos Modernos", "Tanenbaum", 2008, "Tecnología", 800));
         Socio estudianteActivo = new Estudiante("11223344", "Matias", "matias@mail.com");
 
         System.out.println("=====================================");
