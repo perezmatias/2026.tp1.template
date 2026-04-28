@@ -12,11 +12,12 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        // Inicialización de repositorios y servicios
+        // 1. Inicialización de Repositorios en Memoria
         InMemoryRecursoRepository recursoRepo = new InMemoryRecursoRepository();
         InMemorySocioRepository socioRepo = new InMemorySocioRepository();
         InMemoryPrestamoRepository prestamoRepo = new InMemoryPrestamoRepository();
 
+        // 2. Inicialización de Servicios y Validadores
         PrestamoService prestamoService = new PrestamoService(recursoRepo, prestamoRepo);
         ValidadorSocio validador = new ValidadorSocio();
 
@@ -24,11 +25,17 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         boolean salir = false;
 
-        // Carga inicial de datos persistidos
-        System.out.println("Cargando base de datos de libros...");
-        List<Recurso> librosGuardados = GestorArchivos.cargarLibros();
-        librosGuardados.forEach(recursoRepo::guardar);
-        System.out.println("Se cargaron " + librosGuardados.size() + " libros desde el archivo.");
+        // 3. Carga de Persistencia
+        System.out.println("Sincronizando base de datos local...");
+        try {
+            GestorArchivos.cargarLibros().forEach(recursoRepo::guardar);
+            GestorArchivos.cargarSocios().forEach(socioRepo::guardar);
+
+            GestorArchivos.cargarPrestamos(socioRepo, recursoRepo).forEach(prestamoRepo::guardar);
+            System.out.println("Carga finalizada con éxito.");
+        } catch (Exception e) {
+            System.out.println("Aviso: No se pudieron cargar datos previos o los archivos no existen todavía.");
+        }
 
         System.out.println("\n=====================================");
         System.out.println("   SISTEMA BIBLIOTECH - MENDOZA      ");
@@ -40,7 +47,7 @@ public class Main {
             System.out.println("2. Gestión de Socios (Registrar)");
             System.out.println("3. Préstamos (Registrar / Devolver)");
             System.out.println("4. Ver Historial de Transacciones");
-            System.out.println("5. Salir y Guardar");
+            System.out.println("5. Salir y Guardar Cambios");
             System.out.print("Seleccione una opción: ");
 
             String opcion = scanner.nextLine();
@@ -50,7 +57,7 @@ public class Main {
                     case "1":
                         System.out.println("1a. Registrar Libro | 1b. Buscar Libros | 1c. Catálogo completo");
                         String subOpc1 = scanner.nextLine();
-                        if (subOpc1.equals("1a")) {
+                        if (subOpc1.equalsIgnoreCase("1a")) {
                             System.out.print("ISBN: "); String isbn = scanner.nextLine();
                             System.out.print("Título: "); String titulo = scanner.nextLine();
                             System.out.print("Autor: "); String autor = scanner.nextLine();
@@ -58,16 +65,16 @@ public class Main {
                             System.out.print("Categoría: "); String cat = scanner.nextLine();
                             System.out.print("Páginas: "); int pag = Integer.parseInt(scanner.nextLine());
                             recursoRepo.guardar(new Libro(isbn, titulo, autor, anio, cat, pag));
-                            System.out.println("Libro registrado exitosamente.");
-                        } else if (subOpc1.equals("1b")) {
-                            System.out.print("Término de búsqueda: ");
+                            System.out.println("Recurso registrado en el sistema.");
+                        } else if (subOpc1.equalsIgnoreCase("1b")) {
+                            System.out.print("Ingrese término (título/autor/categoría): ");
                             String t = scanner.nextLine();
                             recursoRepo.buscarAvanzada(t).forEach(System.out::println);
-                        } else if (subOpc1.equals("1c")) {
-                            System.out.println("\n--- Catálogo de Recursos ---");
+                        } else if (subOpc1.equalsIgnoreCase("1c")) {
+                            System.out.println("\n--- Libros en Catálogo ---");
                             List<Recurso> todos = recursoRepo.buscarTodos();
-                            if (todos.isEmpty()) System.out.println("No hay libros en el sistema.");
-                            else todos.forEach(r -> System.out.println("- [" + r.isbn() + "] " + r.titulo()));
+                            if (todos.isEmpty()) System.out.println("Catálogo vacío.");
+                            else todos.forEach(r -> System.out.println("- [" + r.isbn() + "] " + r.titulo() + " (" + r.autor() + ")"));
                         }
                         break;
 
@@ -77,7 +84,7 @@ public class Main {
                         System.out.print("Nombre completo: "); String nom = scanner.nextLine();
                         System.out.print("Email: "); String mail = scanner.nextLine();
                         validador.validarEmail(mail);
-                        System.out.print("Categoría (E: Estudiante / D: Docente): ");
+                        System.out.print("Tipo (E: Estudiante / D: Docente): ");
                         String tipo = scanner.nextLine();
                         Socio nuevoSocio = tipo.equalsIgnoreCase("E") ?
                                 new Estudiante(dni, nom, mail) : new Docente(dni, nom, mail);
@@ -86,40 +93,42 @@ public class Main {
                         break;
 
                     case "3":
-                        System.out.println("3a. Nuevo Préstamo | 3b. Devolver Ejemplar");
+                        System.out.println("3a. Nuevo Préstamo | 3b. Devolución");
                         String subOpc3 = scanner.nextLine();
-                        if (subOpc3.equals("3a")) {
+                        if (subOpc3.equalsIgnoreCase("3a")) {
                             System.out.print("DNI del Socio: "); String dniS = scanner.nextLine();
-                            Socio s = socioRepo.buscarPorId(dniS).orElseThrow(() -> new BibliotecaException("El socio no existe."));
-                            System.out.print("ISBN del Libro: "); String isbnL = scanner.nextLine();
+                            Socio s = socioRepo.buscarPorId(dniS).orElseThrow(() -> new BibliotecaException("Socio no encontrado."));
+                            System.out.print("ISBN del Recurso: "); String isbnL = scanner.nextLine();
                             prestamoService.registrarPrestamo(s, isbnL);
                             historial.add("PRÉSTAMO: Socio " + s.nombre() + " retiró ISBN " + isbnL);
-                            System.out.println("Préstamo otorgado correctamente.");
-                        } else if (subOpc3.equals("3b")) {
+                            System.out.println("Operación realizada con éxito.");
+                        } else if (subOpc3.equalsIgnoreCase("3b")) {
                             System.out.print("ISBN a devolver: "); String isbnD = scanner.nextLine();
                             long retraso = prestamoService.gestionarDevolucion(isbnD);
                             historial.add("DEVOLUCIÓN: ISBN " + isbnD + " (Mora: " + retraso + " días)");
 
                             if (retraso > 0) {
-                                System.out.println("Devolución con " + retraso + " días de retraso.");
-                                System.out.println("Sanción aplicada: " + (retraso * 2) + " días de suspensión.");
+                                System.out.println("Alerta: Devolución fuera de término (" + retraso + " días).");
+                                System.out.println("El socio ha sido suspendido por " + (retraso * 2) + " días.");
                             } else {
-                                System.out.println("Devolución realizada a tiempo.");
+                                System.out.println("Devolución aceptada en término.");
                             }
                         }
                         break;
 
                     case "4":
-                        System.out.println("\n--- Historial del Sistema ---");
-                        if (historial.isEmpty()) System.out.println("Sin movimientos registrados.");
+                        System.out.println("\n--- Historial de Transacciones ---");
+                        if (historial.isEmpty()) System.out.println("No hay movimientos en la sesión actual.");
                         else historial.forEach(System.out::println);
                         break;
 
                     case "5":
-                        System.out.println("Guardando cambios en libros.csv...");
+                        System.out.println("Sincronizando cambios con los archivos CSV...");
                         GestorArchivos.guardarLibros(recursoRepo.buscarTodos());
+                        GestorArchivos.guardarSocios(socioRepo.buscarTodos());
+                        GestorArchivos.guardarPrestamos(prestamoRepo.buscarTodos());
                         salir = true;
-                        System.out.println("Sistema cerrado. ¡Hasta la próxima!");
+                        System.out.println("Base de datos actualizada. ¡Hasta luego!");
                         break;
 
                     default:
