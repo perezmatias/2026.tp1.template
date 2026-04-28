@@ -7,4 +7,5 @@ public interface Repository<T, ID> {
     void guardar(T entidad);
     Optional<T> buscarPorId(ID id);
     List<T> buscarTodos();
+    void eliminar(ID id);
 }
