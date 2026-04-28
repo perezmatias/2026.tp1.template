@@ -1,10 +1,9 @@
 package com.bibliotech;
 
-import com.bibliotech.exception.BibliotecaException;
+import com.bibliotech.exception.*;
 import com.bibliotech.model.*;
-import com.bibliotech.repository.InMemoryPrestamoRepository;
-import com.bibliotech.repository.InMemoryRecursoRepository;
-import com.bibliotech.service.PrestamoService;
+import com.bibliotech.repository.*;
+import com.bibliotech.service.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,64 +11,95 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        // 1. Instanciar repositorios y servicios (Inyección de dependencias manual)
+        // Inicialización de componentes
         InMemoryRecursoRepository recursoRepo = new InMemoryRecursoRepository();
+        InMemorySocioRepository socioRepo = new InMemorySocioRepository();
         InMemoryPrestamoRepository prestamoRepo = new InMemoryPrestamoRepository();
-        PrestamoService prestamoService = new PrestamoService(recursoRepo, prestamoRepo);
 
-        // 2. Lista para mantener el historial de transacciones
+        PrestamoService prestamoService = new PrestamoService(recursoRepo, prestamoRepo);
+        ValidadorSocio validador = new ValidadorSocio();
+
         List<String> historial = new ArrayList<>();
         Scanner scanner = new Scanner(System.in);
         boolean salir = false;
 
-        // 3. Cargar datos de prueba
-        recursoRepo.guardar(new Libro("123", "Sistemas Operativos Modernos", "Tanenbaum", 2008, "Tecnología", 800));
-        Socio estudianteActivo = new Estudiante("11223344", "Matias", "matias@mail.com");
+        System.out.println("SISTEMA BIBLIOTECH - GESTIÓN INTEGRAL");
 
-        System.out.println("=====================================");
-        System.out.println("   BIENVENIDO AL SISTEMA BIBLIOTECH  ");
-        System.out.println("=====================================");
-
-        // 4. Bucle principal del CLI
         while (!salir) {
-            System.out.println("\nMenú de Opciones:");
-            System.out.println("1. Ver recursos disponibles");
-            System.out.println("2. Registrar préstamo");
-            System.out.println("3. Registrar devolución");
-            System.out.println("4. Ver historial de transacciones");
+            System.out.println("\n--- MENÚ PRINCIPAL ---");
+            System.out.println("1. Gestión de Libros (Registrar / Buscar / Listar)");
+            System.out.println("2. Gestión de Socios (Registrar)");
+            System.out.println("3. Préstamos (Registrar / Devolver)");
+            System.out.println("4. Ver Historial");
             System.out.println("5. Salir");
-            System.out.print("Elegí una opción: ");
-
+            System.out.print("Seleccione una opción: ");
             String opcion = scanner.nextLine();
 
             try {
                 switch (opcion) {
                     case "1":
-                        System.out.println("\n--- Recursos en el sistema ---");
-                        recursoRepo.buscarTodos().forEach(r ->
-                                System.out.println("- " + r.titulo() + " | Autor: " + r.autor() + " | ISBN: " + r.isbn())
-                        );
+                        System.out.println("1a. Registrar Libro | 1b. Buscar Libros | 1c. Ver todos los libros");
+                        String subOpc1 = scanner.nextLine();
+                        if (subOpc1.equals("1a")) {
+                            System.out.print("ISBN: "); String isbn = scanner.nextLine();
+                            System.out.print("Título: "); String titulo = scanner.nextLine();
+                            System.out.print("Autor: "); String autor = scanner.nextLine();
+                            System.out.print("Año: "); int anio = Integer.parseInt(scanner.nextLine());
+                            System.out.print("Categoría: "); String cat = scanner.nextLine();
+                            System.out.print("Páginas: "); int pag = Integer.parseInt(scanner.nextLine());
+                            recursoRepo.guardar(new Libro(isbn, titulo, autor, anio, cat, pag));
+                            System.out.println("Libro registrado.");
+                        } else if (subOpc1.equals("1b")) {
+                            System.out.print("Término de búsqueda (título/autor/categoría): ");
+                            String t = scanner.nextLine();
+                            recursoRepo.buscarAvanzada(t).forEach(System.out::println);
+                        } else if (subOpc1.equals("1c")) {
+                            System.out.println("\n--- Catálogo Completo ---");
+                            List<Recurso> todosLosRecursos = recursoRepo.buscarTodos();
+                            if (todosLosRecursos.isEmpty()) {
+                                System.out.println("No hay libros registrados en el sistema.");
+                            } else {
+                                todosLosRecursos.forEach(r ->
+                                        System.out.println("- [" + r.isbn() + "] " + r.titulo() + " | Autor: " + r.autor() + " | Categoría: " + r.categoria())
+                                );
+                            }
+                        } else {
+                            System.out.println("Opción no válida.");
+                        }
                         break;
 
                     case "2":
-                        System.out.print("Ingresá el ISBN del recurso a solicitar: ");
-                        String isbnPrestamo = scanner.nextLine();
-                        // Ejecutamos la lógica de negocio
-                        Prestamo p = prestamoService.registrarPrestamo(estudianteActivo, isbnPrestamo);
-                        // Guardamos en el historial
-                        historial.add("PRÉSTAMO: El socio " + estudianteActivo.nombre() + " retiró el recurso [" + isbnPrestamo + "]");
-                        System.out.println("¡Préstamo registrado con éxito!");
+                        System.out.print("DNI: "); String dni = scanner.nextLine();
+                        validador.validarDni(dni);
+                        System.out.print("Nombre: "); String nom = scanner.nextLine();
+                        System.out.print("Email: "); String mail = scanner.nextLine();
+                        validador.validarEmail(mail);
+                        System.out.print("Tipo (E: Estudiante / D: Docente): ");
+                        String tipo = scanner.nextLine();
+                        Socio nuevoSocio = tipo.equalsIgnoreCase("E") ?
+                                new Estudiante(dni, nom, mail) : new Docente(dni, nom, mail);
+                        socioRepo.guardar(nuevoSocio);
+                        System.out.println("Socio registrado con éxito.");
                         break;
 
                     case "3":
-                        System.out.print("Ingresá el ISBN del recurso a devolver: ");
-                        String isbnDevolucion = scanner.nextLine();
-                        // Ejecutamos la devolución
-                        long diasRetraso = prestamoService.gestionarDevolucion(isbnDevolucion);
-                        // Guardamos en el historial
-                        String msjDevolucion = "DEVOLUCIÓN: Recurso [" + isbnDevolucion + "] devuelto. Días de retraso: " + diasRetraso;
-                        historial.add(msjDevolucion);
-                        System.out.println(msjDevolucion);
+                        System.out.println("3a. Nuevo Préstamo | 3b. Devolución");
+                        String subOpc3 = scanner.nextLine();
+                        if (subOpc3.equals("3a")) {
+                            System.out.print("DNI del Socio: "); String dniS = scanner.nextLine();
+                            Socio s = socioRepo.buscarPorId(dniS).orElseThrow(() -> new BibliotecaException("Socio no encontrado."));
+                            System.out.print("ISBN del Libro: "); String isbnL = scanner.nextLine();
+                            prestamoService.registrarPrestamo(s, isbnL);
+                            historial.add("PRÉSTAMO: " + s.nombre() + " llevó " + isbnL);
+                            System.out.println("Préstamo exitoso.");
+                        } else if (subOpc3.equals("3b")) {
+                            System.out.print("ISBN a devolver: "); String isbnD = scanner.nextLine();
+                            long retraso = prestamoService.gestionarDevolucion(isbnD);
+                            historial.add("DEVOLUCIÓN: " + isbnD + " (Retraso: " + retraso + " días)");
+                            System.out.println("Devolución procesada. Retraso: " + retraso + " días.");
+                        } else {
+                            System.out.println("Opción no válida.");
+                        }
                         break;
 
                     case "4":
@@ -88,11 +118,12 @@ public class Main {
 
                     default:
                         System.out.println("Opción no válida. Por favor, intentá de nuevo.");
+                        break;
                 }
             } catch (BibliotecaException e) {
                 System.out.println("ERROR DE NEGOCIO: " + e.getMessage());
             } catch (Exception e) {
-                System.out.println("ERROR INESPERADO: " + e.getMessage());
+                System.out.println("ERROR: " + e.getMessage());
             }
         }
 
