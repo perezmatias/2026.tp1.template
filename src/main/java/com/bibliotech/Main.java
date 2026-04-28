@@ -96,7 +96,15 @@ public class Main {
                             System.out.print("ISBN a devolver: "); String isbnD = scanner.nextLine();
                             long retraso = prestamoService.gestionarDevolucion(isbnD);
                             historial.add("DEVOLUCIÓN: " + isbnD + " (Retraso: " + retraso + " días)");
-                            System.out.println("Devolución procesada. Retraso: " + retraso + " días.");
+
+                            // Sancion
+                            if (retraso > 0) {
+                                long diasSancion = retraso * 2;
+                                System.out.println("Devolución procesada con " + retraso + " días de retraso.");
+                                System.out.println("ATENCIÓN: El socio ha sido sancionado por " + diasSancion + " días.");
+                            } else {
+                                System.out.println("Devolución procesada en término. ¡Gracias!");
+                            }
                         } else {
                             System.out.println("Opción no válida.");
                         }
