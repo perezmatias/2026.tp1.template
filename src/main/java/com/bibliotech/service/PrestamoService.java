@@ -7,11 +7,11 @@ import com.bibliotech.model.Socio;
 import com.bibliotech.repository.Repository;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 public class PrestamoService {
 
-    // Inyección de dependencias por constructor
     private final Repository<Recurso, String> recursoRepository;
     private final Repository<Prestamo, String> prestamoRepository;
 
@@ -53,5 +53,26 @@ public class PrestamoService {
 
         prestamoRepository.guardar(nuevoPrestamo);
         return nuevoPrestamo;
+    }
+
+    public long gestionarDevolucion(String isbn) throws LibroNoDisponibleException {
+        // 1. Buscar el préstamo activo para ese recurso
+        Prestamo prestamoActivo = prestamoRepository.buscarTodos().stream()
+                .filter(p -> p.recurso().isbn().equals(isbn))
+                .findFirst()
+                .orElseThrow(() -> new LibroNoDisponibleException("No se encontró un préstamo activo para el ISBN: " + isbn));
+
+        // 2. Calcular días de retraso
+        LocalDate hoy = LocalDate.now();
+        long diasRetraso = 0;
+
+        if (hoy.isAfter(prestamoActivo.fechaVencimiento())) {
+            diasRetraso = ChronoUnit.DAYS.between(prestamoActivo.fechaVencimiento(), hoy);
+        }
+
+        // 3. Finalizar el préstamo de forma polimórfica usando la interfaz
+        prestamoRepository.eliminar(prestamoActivo.id());
+
+        return diasRetraso;
     }
 }

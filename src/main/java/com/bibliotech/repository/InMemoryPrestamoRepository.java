@@ -26,4 +26,9 @@ public class InMemoryPrestamoRepository implements Repository<Prestamo, String> 
     public List<Prestamo> buscarTodos() {
         return new ArrayList<>(prestamos);
     }
+
+    @Override
+    public void eliminar(String id) {
+        prestamos.removeIf(p -> p.id().equals(id));
+    }
 }
